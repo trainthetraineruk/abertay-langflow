@@ -1,12 +1,30 @@
-# Use the prebuilt Langflow image (fast, reliable)
-# Try Docker Hub first:
-FROM langflowai/langflow:1.0.12
-# If your environment prefers GHCR, use:
-# FROM ghcr.io/langflow-ai/langflow:1.0.12
+# Use a small Python image
+FROM python:3.10-slim
 
-# Render will inject PORT; default to 7860 for local runs
-ENV PORT=7860
+# Ensure bash so we can expand $PORT in CMD
+SHELL ["/bin/bash", "-lc"]
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# System deps needed by some py wheels (kept minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only reqs first to leverage Docker layer cache
+COPY requirements.txt /app/requirements.txt
+
+# Upgrade pip and install deps
+RUN python -m pip install --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+# Expose (Render injects $PORT; we still expose a typical dev port)
 EXPOSE 7860
 
-# Start Langflow
-CMD ["bash", "-lc", "langflow run --host 0.0.0.0 --port ${PORT}"]
+# Start Langflow binding to the Render port
+# SHELL above lets us expand ${PORT}; default to 7860 locally
+CMD python -m langflow run --host 0.0.0.0 --port ${PORT:-7860}
