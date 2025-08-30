@@ -1,23 +1,19 @@
-# Lightweight Python base
-FROM python:3.11-slim
+# Use a small Python image
+FROM python:3.10-slim
 
+# Safer, cleaner defaults
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# System deps (keep minimal)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
- && rm -rf /var/lib/apt/lists/*
-
+# Workdir
 WORKDIR /app
 
-# Install Python deps
-COPY requirements.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Install Langflow (and any extras you add to requirements.txt)
+COPY requirements.txt .
+RUN pip install --upgrade pip setuptools wheel \
+ && pip install -r requirements.txt
 
-# Langflow default port
-EXPOSE 7860
-
-# Start Langflow; Render provides $PORT
-CMD bash -lc 'langflow run --host 0.0.0.0 --port ${PORT:-7860}'
+# IMPORTANT: Render injects $PORT at runtime.
+# We don't EXPOSE or hardcode the port here.
+CMD ["bash", "-lc", "langflow run --host 0.0.0.0 --port $PORT"]
