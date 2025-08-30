@@ -1,19 +1,23 @@
-# Use Python 3.11 so Langflow installs
+# Lightweight Python base
 FROM python:3.11-slim
 
-# Make Python behave nicely in containers
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# System deps (keep minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# (Optional) build tools – some deps need them
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Install Python deps
+COPY requirements.txt /app/
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Install Langflow (and uvicorn to run it)
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install langflow==1.1.0 uvicorn
+# Langflow default port
+EXPOSE 7860
 
-# Start Langflow via uvicorn and bind to Render's $PORT
-CMD ["python", "-m", "uvicorn", "langflow.server:app", "--host", "0.0.0.0", "--port", "${PORT}", "--workers", "1", "--lifespan", "off"]
+# Start Langflow; Render provides $PORT
+CMD bash -lc 'langflow run --host 0.0.0.0 --port ${PORT:-7860}'
