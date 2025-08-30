@@ -1,30 +1,26 @@
-# Use a small Python image
+# Use lightweight Python
 FROM python:3.10-slim
 
-# Ensure bash so we can expand $PORT in CMD
-SHELL ["/bin/bash", "-lc"]
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
-
-# System deps needed by some py wheels (kept minimal)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl \
- && rm -rf /var/lib/apt/lists/*
-
+# Set working directory
 WORKDIR /app
 
-# Copy only reqs first to leverage Docker layer cache
-COPY requirements.txt /app/requirements.txt
+# Prevents Python from writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-# Upgrade pip and install deps
-RUN python -m pip install --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose (Render injects $PORT; we still expose a typical dev port)
-EXPOSE 7860
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Start Langflow binding to the Render port
-# SHELL above lets us expand ${PORT}; default to 7860 locally
-CMD python -m langflow run --host 0.0.0.0 --port ${PORT:-7860}
+# Copy project files (if any)
+COPY . .
+
+# Run Langflow
+CMD ["langflow", "run", "--host", "0.0.0.0", "--port", "7860"]
